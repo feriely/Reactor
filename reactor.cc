@@ -26,38 +26,6 @@ bool Reactor::init(const string& service, int backLog, Selector* s, std::shared_
 	return true;
 }
 
-void Reactor::eventLoop()
-{
-	for (;;)
-	{
-		int ret = pSelector->waitForEvent(-1);
-		if (ret < 0)
-			break;
-		const Selector::ResultListType& resultList = pSelector->getResultList();
-		Selector::ResultListType::const_iterator it(resultList.begin()), itEnd(resultList.end());
-		for (; it != itEnd; ++it)
-		{
-			int fd = it->first;
-			Selector::EventType type = it->second;
-			HandlerListType::iterator itFind = handlerList.find(fd);
-			if (itFind != handlerList.end())
-			{
-				std::shared_ptr<EventHandler> handler = itFind->second;
-				if (type & Selector::READ)
-					handler->handleRead();
-				else if (type & Selector::WRITE)
-					handler->handleWrite();
-				else
-					handler->handleError();
-
-			}
-			else
-			{
-				cerr << "Can't find socket:" << fd << " event handler" << endl;
-			}
-		}
-	}
-}
 
 void Reactor::addEventHandler(int fd, std::shared_ptr<EventHandler> pHandler)
 {
