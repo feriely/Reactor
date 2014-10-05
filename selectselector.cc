@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <fcntl.h>
+#include "util.h"
 #include "selectselector.h"
 using namespace std;
 
@@ -14,7 +15,7 @@ SelectSelector::SelectSelector() : maxfd(-1)
 
 void SelectSelector::addSocket(int fd, EventType type)
 {
-	setnonblocking(fd);
+	Util::setnonblocking(fd);
 	if (type & READ)
 	{
 		FD_SET(fd, &readfds);
@@ -75,23 +76,4 @@ int SelectSelector::waitForEvent(int timeout)
 	}
 
 	return ret;
-}
-
-void SelectSelector::setnonblocking(int fd)
-{
-	int flags;
-
-	flags = fcntl(fd, F_GETFL);
-	if (flags < 0)
-	{
-		perror("fcntl get flag");
-		exit(1);
-	}
-
-	flags |= O_NONBLOCK;
-	if (fcntl(fd, F_SETFL, flags) < 0)
-	{
-		perror("fcntl set flag");
-		exit(1);
-	}
 }

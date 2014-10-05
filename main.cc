@@ -13,7 +13,7 @@ public:
 	EchoEventHandler(Reactor& r) : EventHandler(r) {}
 	EchoEventHandler(Reactor& r, int fd) : EventHandler(r, fd) {}
 
-	virtual bool handleRead()
+	virtual HANDLE_RESULT handleRead()
 	{
 		char buf[1024];
 		int nbytes = read(handle, buf, sizeof(buf));
@@ -26,19 +26,22 @@ public:
 			reactor.removeEventHandler(handle);
 			close(handle);
 			cout << "Close socket:" << handle << endl;
+			return HANDLE_RESULT_CLOSE;
 		}
 
 		write(handle, buf, nbytes);
 
-		return true;
+		return HANDLE_RESULT_CONTINUE;
 	}
 
-	virtual void handleWrite()
+	virtual HANDLE_RESULT handleWrite()
 	{
+		return HANDLE_RESULT_CONTINUE;
 	}
 
-	virtual void handleError()
+	virtual HANDLE_RESULT handleError()
 	{
+		return HANDLE_RESULT_CONTINUE;
 	}
 };
 
@@ -47,7 +50,7 @@ int main(int argc, char* argv[])
 	LeaderFollowersReactor reactor;
 
 	std::shared_ptr<EchoEventHandler> pHandler(new EchoEventHandler(reactor));
-	if (!reactor.init("9877", 10, new SelectSelector(), pHandler))
+	if (!reactor.initWithEventHandler<EchoEventHandler>("9877", 10, new SelectSelector()))
 		exit(1);
 
 	reactor.createThread();

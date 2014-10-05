@@ -20,6 +20,8 @@ public:
 	AutoLock(Lock& l);
 	~AutoLock();
 
+	void release();
+
 private:
 	Lock& lock;
 };

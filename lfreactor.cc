@@ -9,9 +9,11 @@ LeaderFollowersReactor::LeaderFollowersReactor() : Reactor()
 
 void LeaderFollowersReactor::eventLoop()
 {
-	AutoLock auLock(lockForEventLoop);
+	AutoLock auEventLoopLock(lockForEventLoop);
+	cout << "Thread " << Thread::getThreadId() << " get event loop lock" << endl;
+	AutoLock auSelectorLock(lockForSelector);
+	cout << "Thread " << Thread::getThreadId() << " get selector lock" << endl;
 
-	cout << "Thread " << Thread::getThreadId() << " get lock" << endl;
 	for (;;)
 	{
 		int ret = pSelector->waitForEvent(-1);
@@ -19,29 +21,58 @@ void LeaderFollowersReactor::eventLoop()
 			break;
 		const Selector::ResultListType& resultList = pSelector->getResultList();
 		Selector::ResultListType::const_iterator it(resultList.begin()), itEnd(resultList.end());
+		bool dispatch = false;
 		for (; it != itEnd; ++it)
 		{
 			int fd = it->first;
 			Selector::EventType type = it->second;
-			HandlerListType::iterator itFind = handlerList.find(fd);
-			if (itFind != handlerList.end())
+			if (fd == notifyPipe.getSocket() || fd == listener.getSocket())
 			{
-				std::shared_ptr<EventHandler> handler = itFind->second;
 				if (type & Selector::READ)
-					handler->handleRead();
-				else if (type & Selector::WRITE)
-					handler->handleWrite();
+					handlerList[fd]->handleRead();
 				else
-					handler->handleError();
-
+					cerr << "Invalid event type:" << type << " for fd:" << fd << endl;
 			}
 			else
 			{
-				cerr << "Can't find socket:" << fd << " event handler" << endl;
+				pSelector->removeSocket(fd);
+				dispatch = true;
+			}
+		}
+		if (dispatch)
+		{
+			auSelectorLock.release();
+			cout << "Thread " << Thread::getThreadId() << " release selector lock" << endl;
+			auEventLoopLock.release();
+			cout << "Thread " << Thread::getThreadId() << " release event loop lock" << endl;
+			for (it = resultList.begin(); it != itEnd; ++it)
+			{
+				int fd = it->first;
+				Selector::EventType type = it->second;
+				if (fd == notifyPipe.getSocket() || fd == listener.getSocket())
+					continue;
+
+				EventHandler::HANDLE_RESULT result;
+				if (type & Selector::READ)
+					result = handlerList[fd]->handleRead();
+				else if (type & Selector::WRITE)
+					result = handlerList[fd]->handleWrite();
+				else
+					result = handlerList[fd]->handleError();
+
+				if (result == EventHandler::HANDLE_RESULT_CONTINUE)
+				{
+					AutoLock auLock(lockForSelector);
+					cout << "Thread " << Thread::getThreadId() << " get selector lock" << endl;
+					pSelector->addSocket(fd, Selector::READ);
+					notifyPipe.send();
+					cout << "Thread " << Thread::getThreadId() << " release selector lock" << endl;
+				}
 			}
 		}
 	}
-	cout << "Thread " << Thread::getThreadId() << " release lock" << endl;
+	cout << "Thread " << Thread::getThreadId() << " release selector lock" << endl;
+	cout << "Thread " << Thread::getThreadId() << " release event loop lock" << endl;
 }
 
 void LeaderFollowersReactor::createThread()

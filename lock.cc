@@ -61,5 +61,10 @@ AutoLock::AutoLock(Lock& l) : lock(l)
 
 AutoLock::~AutoLock()
 {
+	release();
+}
+
+void AutoLock::release()
+{
 	lock.unlock();
 }

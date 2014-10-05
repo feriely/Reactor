@@ -12,7 +12,7 @@ Reactor::~Reactor()
 {
 }
 
-bool Reactor::init(const string& service, int backLog, Selector* s, std::shared_ptr<EventHandler> handler)
+bool Reactor::init(const string& service, int backLog, Selector* s)
 {
 	if (!listener.init(service, backLog))
 	{
@@ -20,8 +20,6 @@ bool Reactor::init(const string& service, int backLog, Selector* s, std::shared_
 		return false;
 	}
 	pSelector.reset(s);
-	std::shared_ptr<EventHandler> pHandler(new ListenHandler(listener, *this, handler));
-	addEventHandler(listener.getSocket(), pHandler);
 
 	return true;
 }
